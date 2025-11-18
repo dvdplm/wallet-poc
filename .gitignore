@@ -1,0 +1,13 @@
+/target
+Cargo.lock
+*.sublime-project
+*.sublime-workspace
+.rules
+.cursorrules
+.windsurfrules
+.clinerules
+.github/copilot-instructions.md
+AGENT.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
