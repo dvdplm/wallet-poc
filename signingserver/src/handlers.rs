@@ -100,16 +100,60 @@ mod tests {
 
     #[tokio::test]
     async fn test_register() {
-        // Setup state and request params
         let app_state = Arc::new(RwLock::new(AppState::new()));
         let req = RegisterRequest {
             seed: vec![1, 2, 3, 4, 5],
         };
 
-        // Call the register handler
         let response = register(State(app_state), Json(req)).await.into_response();
 
-        // Assert the success - verify status code is CREATED (201)
         assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn test_forget() {
+        let app_state = Arc::new(RwLock::new(AppState::new()));
+
+        // Register
+        let user_id = {
+            let mut state = app_state.write().await;
+            let user = state.register_user(&[1, 2, 3, 4, 5]);
+            user.id
+        };
+
+        // Sign something, check success
+        let sign_req = SignRequest {
+            user_id: user_id.clone(),
+            message: "test message".to_string(),
+        };
+
+        let sign_response = sign(State(app_state.clone()), Json(sign_req))
+            .await
+            .into_response();
+
+        assert_eq!(sign_response.status(), StatusCode::OK);
+
+        // Forget
+        let forget_req = ForgetRequest {
+            user_id: user_id.clone(),
+        };
+
+        let forget_response = forget(State(app_state.clone()), Json(forget_req))
+            .await
+            .into_response();
+
+        assert_eq!(forget_response.status(), StatusCode::OK);
+
+        // Assert "not found"
+        let sign_req_after = SignRequest {
+            user_id: user_id.clone(),
+            message: "test message after forget".to_string(),
+        };
+
+        let sign_response_after = sign(State(app_state), Json(sign_req_after))
+            .await
+            .into_response();
+
+        assert_eq!(sign_response_after.status(), StatusCode::NOT_FOUND);
     }
 }
