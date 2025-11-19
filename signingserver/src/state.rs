@@ -27,7 +27,7 @@ impl AppState {
     }
 
     /// Register a new user with a generated signing key
-    pub fn register_user(&mut self, seed: &[u8]) -> anyhow::Result<User> {
+    pub fn register_user(&mut self, seed: &[u8]) -> User {
         // Generate a new ED25519 key pair
         let mut secret_key_bytes = [0u8; SECRET_KEY_LENGTH];
         // FIXME: we want to control which CSPRNG we use here. Not safe to use OS defaults.
@@ -42,7 +42,7 @@ impl AppState {
         };
 
         self.users.insert(user_id, user.clone());
-        Ok(user)
+        user
     }
 
     /// Get a user by ID
