@@ -52,7 +52,7 @@ pub async fn sign(
             (
                 StatusCode::OK,
                 Json(SignResponse {
-                    signature: hex::encode(&signature),
+                    signature: hex::encode(signature.to_bytes()),
                 }),
             )
                 .into_response()

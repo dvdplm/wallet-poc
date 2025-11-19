@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{SECRET_KEY_LENGTH, Signature, Signer, SigningKey, VerifyingKey};
 use heapless::index_map::FnvIndexMap;
 use hkdf::Hkdf;
 use sha2::Sha256;
@@ -50,13 +50,12 @@ impl AppState {
     }
 
     /// Sign a message for a user
-    pub fn sign_message(&self, user_id: &str, message: &str) -> anyhow::Result<Vec<u8>> {
+    pub fn sign_message(&self, user_id: &str, message: &str) -> anyhow::Result<Signature> {
         let signing_key = self.user(user_id)?;
 
         let signature = signing_key.sign(message.as_bytes());
 
-        // FIXME: we probably don't need to allocate here?
-        Ok(signature.to_bytes().to_vec())
+        Ok(signature)
     }
 
     /// Delete a user (forget)
