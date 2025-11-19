@@ -17,15 +17,24 @@ pub async fn register(
     debug!("Register request for user: {:?}", req.seed);
 
     let mut state = state.write().await;
-    let (user_id, verifying_key) = state.register_user(&req.seed);
-    (
-        StatusCode::CREATED,
-        Json(RegisterResponse {
-            user_id: user_id.to_string(),
-            verifying_key: hex::encode(verifying_key.as_bytes()),
-        }),
-    )
-        .into_response()
+    if let Ok((user_id, verifying_key)) = state.register_user(&req.seed) {
+        (
+            StatusCode::CREATED,
+            Json(RegisterResponse {
+                user_id: user_id.to_string(),
+                verifying_key: hex::encode(verifying_key.as_bytes()),
+            }),
+        )
+            .into_response()
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Server is at capacity".into(),
+            }),
+        )
+            .into_response()
+    }
 }
 
 /// Sign a message for a user
@@ -100,7 +109,7 @@ mod tests {
         // Register
         let user_id = {
             let mut state = app_state.write().await;
-            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]);
+            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]).unwrap();
             user_id
         };
 
@@ -145,7 +154,7 @@ mod tests {
         let app_state = Arc::new(RwLock::new(AppState::new()));
         let user_id = {
             let mut state = app_state.write().await;
-            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]);
+            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]).unwrap();
             user_id
         };
 
