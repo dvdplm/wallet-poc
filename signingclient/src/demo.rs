@@ -1,28 +1,9 @@
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, info, trace};
+use tracing::{info, trace};
+
+use signingcommon::{RegisterRequest, RegisterResponse, SignRequest, SignResponse};
 
 const SERVER_URL: &str = "http://127.0.0.1:3000";
-
-#[derive(Serialize)]
-struct SignRequest {
-    user_id: String,
-    message: String,
-}
-
-#[derive(Serialize)]
-struct RegisterRequest {
-    seed: Vec<u8>,
-}
-#[derive(Deserialize)]
-struct RegisterResponse {
-    user_id: String,
-}
-
-#[derive(Deserialize)]
-struct SignResponse {
-    signature: String,
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -70,11 +51,11 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn sign_message(client: &Client, username: &str, message: &str) -> anyhow::Result<String> {
+async fn sign_message(client: &Client, user_id: &str, message: &str) -> anyhow::Result<String> {
     let response = client
         .post(format!("{}/sign", SERVER_URL))
         .json(&SignRequest {
-            user_id: username.to_string(),
+            user_id: user_id.to_string(),
             message: message.to_string(),
         })
         .send()
@@ -85,23 +66,27 @@ async fn sign_message(client: &Client, username: &str, message: &str) -> anyhow:
         let response = client
             .post(format!("{}/register", SERVER_URL))
             .json(&RegisterRequest {
-                seed: username.as_bytes().to_vec(),
+                seed: user_id.as_bytes().to_vec(),
             })
             .send()
             .await?;
-        debug!("auto-registration response: {:?}", response);
+        assert!(response.status().is_success(), "registration works");
         // let r = response.text().await?;
-        // trace!("reg response body: {r:?}");
+        // trace!("response: {r:?}");
         // Ok("".into())
         let user: RegisterResponse = response.json().await?;
+        // Retry signing
         let response = client
             .post(format!("{}/sign", SERVER_URL))
             .json(&SignRequest {
                 user_id: user.user_id,
-                message: message.into(),
+                message: message.to_string(), // FIXME: no need to clone here
             })
             .send()
             .await?;
+        // let r = response.text().await?;
+        // trace!("response: {r:?}");
+        // Ok("".into())
 
         let result: SignResponse = response.json().await?;
         Ok(result.signature)

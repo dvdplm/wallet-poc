@@ -7,7 +7,6 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 mod handlers;
-mod models;
 mod state;
 
 use state::AppState;

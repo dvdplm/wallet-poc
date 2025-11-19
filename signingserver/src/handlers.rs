@@ -3,12 +3,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 
-use crate::{
-    models::{
-        ErrorResponse, ForgetRequest, ForgetResponse, RegisterRequest, RegisterResponse,
-        SignRequest, SignResponse,
-    },
-    state::AppState,
+use crate::state::AppState;
+use signingcommon::{
+    ErrorResponse, ForgetRequest, ForgetResponse, RegisterRequest, RegisterResponse, SignRequest,
+    SignResponse,
 };
 
 /// Register a new user and generate a signing key

@@ -1,5 +1,5 @@
 [workspace]
-members = ["signingserver", "signingclient"]
+members = ["signingcommon", "signingserver", "signingclient"]
 resolver = "3"
 
 [workspace.package]

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use signingcommon::{ErrorResponse, RegisterRequest, SignRequest, SignResponse};
 use tracing::{error, info};
 
 #[derive(Parser, Debug)]
@@ -21,31 +21,10 @@ struct Args {
     server: String,
 }
 
-#[derive(Serialize)]
-struct SignRequest {
-    user_id: String,
-    message: String,
-}
-
-#[derive(Serialize)]
-struct RegisterRequest {
-    username: String,
-}
-
-#[derive(Deserialize)]
-struct SignResponse {
-    signature: String,
-}
-
-#[derive(Deserialize)]
-struct ErrorResponse {
-    error: String,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
         .init();
 
     let args = Args::parse();
@@ -73,7 +52,7 @@ async fn main() -> Result<()> {
         let reg_response = client
             .post(format!("{}/register", args.server))
             .json(&RegisterRequest {
-                username: user_id.clone(),
+                seed: user_id.as_bytes().to_vec(),
             })
             .send()
             .await?;

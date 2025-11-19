@@ -12,6 +12,7 @@ name = "demo"
 path = "src/demo.rs"
 
 [dependencies]
+signingcommon = { path = "../signingcommon" }
 clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
