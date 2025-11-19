@@ -63,10 +63,7 @@ impl AppState {
     }
 
     /// Delete a user (forget)
-    pub fn delete_user(&mut self, user_id: &str) -> anyhow::Result<()> {
-        self.users
-            .remove(user_id)
-            .ok_or_else(|| anyhow::anyhow!("User not found"))?;
-        Ok(())
+    pub fn forget(&mut self, user_id: &str) {
+        self.users.remove(user_id);
     }
 }

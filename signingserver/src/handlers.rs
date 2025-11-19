@@ -61,37 +61,20 @@ pub async fn sign(
     }
 }
 
-/// Delete a user (forget)
+/// Forget a user
 pub async fn forget(
     State(state): State<Arc<RwLock<AppState>>>,
     Json(req): Json<ForgetRequest>,
 ) -> impl IntoResponse {
-    info!("Forget user: {}", req.user_id);
-
     let mut state = state.write().await;
-
-    match state.delete_user(&req.user_id) {
-        Ok(_) => {
-            info!("User forgotten: {}", req.user_id);
-            (
-                StatusCode::OK,
-                Json(ForgetResponse {
-                    message: "User data deleted successfully".to_string(),
-                }),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            error!("Forget failed: {}", e);
-            (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    error: format!("Forget failed: {}", e),
-                }),
-            )
-                .into_response()
-        }
-    }
+    state.forget(&req.user_id);
+    (
+        StatusCode::OK,
+        Json(ForgetResponse {
+            message: "User successfully forgotten".to_string(),
+        }),
+    )
+        .into_response()
 }
 
 #[cfg(test)]
