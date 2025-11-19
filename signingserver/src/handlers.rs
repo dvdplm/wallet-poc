@@ -16,18 +16,18 @@ pub async fn register(
     State(state): State<Arc<RwLock<AppState>>>,
     Json(req): Json<RegisterRequest>,
 ) -> impl IntoResponse {
-    debug!("Register request for user: {}", req.username);
+    debug!("Register request for user: {:?}", req.seed);
 
     let mut state = state.write().await;
 
-    match state.register_user(req.username.clone()) {
+    match state.register_user(&req.seed) {
         Ok(user) => {
             debug!("User registered successfully: {}", user.id);
             (
                 StatusCode::CREATED,
                 Json(RegisterResponse {
                     user_id: user.id,
-                    public_key: hex::encode(&user.public_key),
+                    verifying_key: hex::encode(user.signing_key.verifying_key().as_bytes()),
                 }),
             )
                 .into_response()

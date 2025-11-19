@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 /// Request to register a new user and generate a signing key
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RegisterRequest {
-    pub username: String,
+    pub seed: Vec<u8>,
 }
 
 /// Response after successful registration
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterResponse {
     pub user_id: String,
-    pub public_key: String,
+    pub verifying_key: String,
 }
 
 /// Request to sign a message

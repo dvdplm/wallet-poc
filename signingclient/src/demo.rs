@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 const SERVER_URL: &str = "http://127.0.0.1:3000";
 
@@ -12,7 +12,7 @@ struct SignRequest {
 
 #[derive(Serialize)]
 struct RegisterRequest {
-    username: String,
+    seed: Vec<u8>,
 }
 #[derive(Deserialize)]
 struct RegisterResponse {
@@ -85,11 +85,14 @@ async fn sign_message(client: &Client, username: &str, message: &str) -> anyhow:
         let response = client
             .post(format!("{}/register", SERVER_URL))
             .json(&RegisterRequest {
-                username: username.to_string(),
+                seed: username.as_bytes().to_vec(),
             })
             .send()
             .await?;
         debug!("auto-registration response: {:?}", response);
+        // let r = response.text().await?;
+        // trace!("reg response body: {r:?}");
+        // Ok("".into())
         let user: RegisterResponse = response.json().await?;
         let response = client
             .post(format!("{}/sign", SERVER_URL))
