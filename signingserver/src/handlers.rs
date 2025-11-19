@@ -139,4 +139,37 @@ mod tests {
 
         assert_eq!(sign_response_after.status(), StatusCode::NOT_FOUND);
     }
+
+    #[tokio::test]
+    async fn test_sign_success() {
+        let app_state = Arc::new(RwLock::new(AppState::new()));
+        let user_id = {
+            let mut state = app_state.write().await;
+            let user = state.register_user(&[1, 2, 3, 4, 5]);
+            user.id
+        };
+
+        let sign_req = SignRequest {
+            user_id,
+            message: "test message".to_string(),
+        };
+
+        let response = sign(State(app_state), Json(sign_req)).await.into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_sign_fail() {
+        let app_state = Arc::new(RwLock::new(AppState::new()));
+
+        let sign_req = SignRequest {
+            user_id: "non-existent-user".to_string(),
+            message: "test message".to_string(),
+        };
+
+        let response = sign(State(app_state), Json(sign_req)).await.into_response();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
 }
