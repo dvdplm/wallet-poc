@@ -1,9 +1,11 @@
 use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey};
-use rand::RngCore;
+use hkdf::Hkdf;
+use sha2::Sha256;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 const MAX_USERS: usize = 1_000;
+const MASTER_KEY: &[u8] = b"s!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!t";
 
 /// Represents a user in the system
 #[derive(Clone, Debug)]
@@ -26,19 +28,19 @@ impl AppState {
         }
     }
 
-    /// Register a new user with a generated signing key
+    /// Register a new user with a deterministically derived signing key
     pub fn register_user(&mut self, seed: &[u8]) -> User {
-        // Generate a new ED25519 key pair
-        let mut secret_key_bytes = [0u8; SECRET_KEY_LENGTH];
-        // FIXME: we want to control which CSPRNG we use here. Not safe to use OS defaults.
-        rand::thread_rng().fill_bytes(&mut secret_key_bytes);
-        // TODO: derive key from seed + masterkey
-        let secret_key = SigningKey::from_bytes(&secret_key_bytes);
+        // Derive a signing key from seed + master key using HKDF
+        let hkdf = Hkdf::<Sha256>::new(Some(MASTER_KEY), seed);
+        let mut signing_key_bytes = [0u8; SECRET_KEY_LENGTH];
+        hkdf.expand(b"signing_key", &mut signing_key_bytes)
+            .expect("okm has the correct length");
+        let signing_key = SigningKey::from_bytes(&signing_key_bytes);
 
         let user_id = Uuid::new_v4().to_string();
         let user = User {
             id: user_id.clone(),
-            signing_key: secret_key,
+            signing_key,
         };
 
         self.users.insert(user_id, user.clone());
