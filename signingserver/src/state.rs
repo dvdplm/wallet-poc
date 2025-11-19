@@ -1,64 +1,57 @@
-use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey};
+use ed25519_dalek::{SECRET_KEY_LENGTH, Signer, SigningKey, VerifyingKey};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-const MAX_USERS: usize = 1_000;
+const MAX_KEYS: usize = 1_000;
+
+// The master key is used to salt user key derivation. This should be carefully guarded.
 const MASTER_KEY: &[u8] = b"s!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!t";
 
-/// Represents a user in the system
-#[derive(Clone, Debug)]
-pub struct User {
-    pub id: String, //FIXME: want more type safety here. And length restrictions. Maybe just use random bytes?
-    pub signing_key: SigningKey,
-}
-
-/// Application state managing all users and their keys
+/// Application state managing keys
 #[derive(Debug)]
 pub struct AppState {
-    users: HashMap<String, User>,
+    keys: HashMap<Uuid, SigningKey>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         AppState {
             // FIXME: replace with non-allocating data structure?
-            users: HashMap::with_capacity(MAX_USERS),
+            keys: HashMap::with_capacity(MAX_KEYS),
         }
     }
 
     /// Register a new user with a deterministically derived signing key
-    pub fn register_user(&mut self, seed: &[u8]) -> User {
+    pub fn register_user(&mut self, seed: &[u8]) -> (Uuid, VerifyingKey) {
         // Derive a signing key from seed + master key using HKDF
         let hkdf = Hkdf::<Sha256>::new(Some(MASTER_KEY), seed);
         let mut signing_key_bytes = [0u8; SECRET_KEY_LENGTH];
         hkdf.expand(b"signing_key", &mut signing_key_bytes)
-            .expect("okm has the correct length");
+            .expect("okm has valid and hardcoded length");
         let signing_key = SigningKey::from_bytes(&signing_key_bytes);
+        let verifying_key = signing_key.verifying_key();
+        let user_id = Uuid::new_v4();
 
-        let user_id = Uuid::new_v4().to_string();
-        let user = User {
-            id: user_id.clone(),
-            signing_key,
-        };
-
-        self.users.insert(user_id, user.clone());
-        user
+        self.keys.insert(user_id.clone(), signing_key);
+        (user_id, verifying_key)
     }
 
-    /// Get a user by ID
-    fn user(&self, user_id: &str) -> Option<User> {
-        self.users.get(user_id).cloned()
+    // Get a user by UUID
+    fn user(&self, user_id: &str) -> anyhow::Result<SigningKey> {
+        let user_id = Uuid::parse_str(user_id)?;
+        self.keys
+            .get(&user_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No such user"))
     }
 
     /// Sign a message for a user
     pub fn sign_message(&self, user_id: &str, message: &str) -> anyhow::Result<Vec<u8>> {
-        let user = self
-            .user(user_id)
-            .ok_or_else(|| anyhow::anyhow!("User not found"))?;
+        let signing_key = self.user(user_id)?;
 
-        let signature = user.signing_key.sign(message.as_bytes());
+        let signature = signing_key.sign(message.as_bytes());
 
         // FIXME: we probably don't need to allocate here?
         Ok(signature.to_bytes().to_vec())
@@ -66,6 +59,7 @@ impl AppState {
 
     /// Delete a user (forget)
     pub fn forget(&mut self, user_id: &str) {
-        self.users.remove(user_id);
+        let user_id = Uuid::parse_str(user_id).unwrap_or_else(|_| Uuid::new_v4());
+        self.keys.remove(&user_id);
     }
 }

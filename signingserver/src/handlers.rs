@@ -17,12 +17,12 @@ pub async fn register(
     debug!("Register request for user: {:?}", req.seed);
 
     let mut state = state.write().await;
-    let user = state.register_user(&req.seed);
+    let (user_id, verifying_key) = state.register_user(&req.seed);
     (
         StatusCode::CREATED,
         Json(RegisterResponse {
-            user_id: user.id,
-            verifying_key: hex::encode(user.signing_key.verifying_key().as_bytes()),
+            user_id: user_id.to_string(),
+            verifying_key: hex::encode(verifying_key.as_bytes()),
         }),
     )
         .into_response()
@@ -100,13 +100,13 @@ mod tests {
         // Register
         let user_id = {
             let mut state = app_state.write().await;
-            let user = state.register_user(&[1, 2, 3, 4, 5]);
-            user.id
+            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]);
+            user_id
         };
 
         // Sign something, check success
         let sign_req = SignRequest {
-            user_id: user_id.clone(),
+            user_id: user_id.to_string(),
             message: "test message".to_string(),
         };
 
@@ -118,7 +118,7 @@ mod tests {
 
         // Forget
         let forget_req = ForgetRequest {
-            user_id: user_id.clone(),
+            user_id: user_id.to_string(),
         };
 
         let forget_response = forget(State(app_state.clone()), Json(forget_req))
@@ -129,7 +129,7 @@ mod tests {
 
         // Assert "not found"
         let sign_req_after = SignRequest {
-            user_id: user_id.clone(),
+            user_id: user_id.to_string(),
             message: "test message after forget".to_string(),
         };
 
@@ -145,12 +145,12 @@ mod tests {
         let app_state = Arc::new(RwLock::new(AppState::new()));
         let user_id = {
             let mut state = app_state.write().await;
-            let user = state.register_user(&[1, 2, 3, 4, 5]);
-            user.id
+            let (user_id, _) = state.register_user(&[1, 2, 3, 4, 5]);
+            user_id
         };
 
         let sign_req = SignRequest {
-            user_id,
+            user_id: user_id.to_string(),
             message: "test message".to_string(),
         };
 
