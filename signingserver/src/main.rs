@@ -45,3 +45,14 @@ async fn main() -> anyhow::Result<()> {
 async fn health_check() -> &'static str {
     "OK"
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_async_health_check() {
+        let result = health_check().await;
+        assert_eq!(result, "OK");
+    }
+}
