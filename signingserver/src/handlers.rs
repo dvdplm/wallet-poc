@@ -17,30 +17,15 @@ pub async fn register(
     debug!("Register request for user: {:?}", req.seed);
 
     let mut state = state.write().await;
-
-    match state.register_user(&req.seed) {
-        Ok(user) => {
-            debug!("User registered successfully: {}", user.id);
-            (
-                StatusCode::CREATED,
-                Json(RegisterResponse {
-                    user_id: user.id,
-                    verifying_key: hex::encode(user.signing_key.verifying_key().as_bytes()),
-                }),
-            )
-                .into_response()
-        }
-        Err(e) => {
-            error!("Registration failed: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: format!("Registration failed: {}", e),
-                }),
-            )
-                .into_response()
-        }
-    }
+    let user = state.register_user(&req.seed);
+    (
+        StatusCode::CREATED,
+        Json(RegisterResponse {
+            user_id: user.id,
+            verifying_key: hex::encode(user.signing_key.verifying_key().as_bytes()),
+        }),
+    )
+        .into_response()
 }
 
 /// Sign a message for a user
@@ -106,5 +91,25 @@ pub async fn forget(
             )
                 .into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_register() {
+        // Setup state and request params
+        let app_state = Arc::new(RwLock::new(AppState::new()));
+        let req = RegisterRequest {
+            seed: vec![1, 2, 3, 4, 5],
+        };
+
+        // Call the register handler
+        let response = register(State(app_state), Json(req)).await.into_response();
+
+        // Assert the success - verify status code is CREATED (201)
+        assert_eq!(response.status(), StatusCode::CREATED);
     }
 }
