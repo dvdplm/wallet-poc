@@ -1,27 +1,39 @@
 use anyhow::Result;
-use clap::Parser;
-use signingcommon::{ErrorResponse, RegisterRequest, SignRequest, SignResponse};
+use clap::{Parser, Subcommand};
+use signingcommon::{ErrorResponse, RegisterRequest, RegisterResponse, SignRequest, SignResponse};
 use tracing::{error, info};
 
 #[derive(Parser, Debug)]
 #[command(name = "sign")]
-#[command(about = "Sign a message using the remote signing service")]
+#[command(about = "Sign messages using the remote signing service")]
 struct Args {
-    /// The message to sign
-    #[arg(short, long)]
-    message: String,
+    #[command(subcommand)]
+    command: Option<Commands>,
 
-    /// The user ID for the signing service
-    #[arg(short, long)]
+    /// The message to sign (used when no subcommand is given)
+    #[arg(short, long, requires = "user_id")]
+    message: Option<String>,
+
+    /// The user ID for signing (used when no subcommand is given)
+    #[arg(short, long, requires = "message")]
     user_id: Option<String>,
 
     /// The server URL
-    #[arg(short, long, default_value = "https://127.0.0.1:3443")]
+    #[arg(short, long, default_value = "https://127.0.0.1:3443", global = true)]
     server: String,
 
     /// Accept self-signed certificates (for development)
-    #[arg(long, default_value_t = true)]
+    #[arg(long, default_value_t = true, global = true)]
     danger_accept_invalid_certs: bool,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Register a new signing key and get a UUID
+    Register {
+        /// Seed string for key generation
+        seed: String,
+    },
 }
 
 #[tokio::main]
@@ -31,11 +43,6 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-
-    let user_id = args
-        .user_id
-        .or_else(|| std::env::var("WALLET_USER_ID").ok())
-        .ok_or_else(|| anyhow::anyhow!("User ID required (-u flag or WALLET_USER_ID env var)"))?;
 
     // Build client with TLS configuration
     let client = if args.danger_accept_invalid_certs {
@@ -47,61 +54,83 @@ async fn main() -> Result<()> {
         reqwest::Client::new()
     };
 
-    // Try to sign
+    match args.command {
+        Some(Commands::Register { seed }) => {
+            register_user(&client, &args.server, &seed).await?;
+        }
+        None => {
+            // Handle the default sign operation when no subcommand is given
+            let user_id = args
+                .user_id
+                .ok_or_else(|| anyhow::anyhow!("User ID required (-u flag)"))?;
+            let message = args
+                .message
+                .ok_or_else(|| anyhow::anyhow!("Message required (-m flag)"))?;
+
+            sign_message(&client, &args.server, &user_id, &message).await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn register_user(client: &reqwest::Client, server_url: &str, seed: &str) -> Result<()> {
+    info!("Registering new user...");
+
+    // Convert seed string to bytes
+    let seed = seed.as_bytes().to_vec();
+
     let response = client
-        .post(format!("{}/sign", args.server))
+        .post(format!("{}/register", server_url))
+        .json(&RegisterRequest { seed })
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let result: RegisterResponse = response.json().await?;
+        println!("{}", result.user_id);
+        println!("{}", result.verifying_key);
+        info!(
+            "User registered successfully.\n UUID:\t{}\n Verifying key:\t{}",
+            result.user_id, result.verifying_key
+        );
+    } else {
+        let err: ErrorResponse = response.json().await?;
+        error!("Registration failed: {}", err.error);
+        anyhow::bail!("Registration failed: {}", err.error);
+    }
+
+    Ok(())
+}
+
+async fn sign_message(
+    client: &reqwest::Client,
+    server_url: &str,
+    user_id: &str,
+    message: &str,
+) -> Result<()> {
+    info!("Signing message...");
+
+    let response = client
+        .post(format!("{}/sign", server_url))
         .json(&SignRequest {
-            user_id: user_id.clone(),
-            message: args.message.clone(),
+            user_id: user_id.to_string(),
+            message: message.to_string(),
         })
         .send()
         .await?;
 
-    if response.status() == 404 {
-        // User doesn't exist, register first
-        info!("User not found, registering...");
-        let reg_response = client
-            .post(format!("{}/register", args.server))
-            .json(&RegisterRequest {
-                seed: user_id.as_bytes().to_vec(),
-            })
-            .send()
-            .await?;
-
-        if !reg_response.status().is_success() {
-            error!("Registration failed");
-            anyhow::bail!("Registration failed");
-        }
-
-        info!("User registered, signing message...");
-
-        // Try signing again
-        let sign_response = client
-            .post(format!("{}/sign", args.server))
-            .json(&SignRequest {
-                user_id,
-                message: args.message,
-            })
-            .send()
-            .await?;
-
-        if sign_response.status().is_success() {
-            let result: SignResponse = sign_response.json().await?;
-            println!("{}", result.signature);
-            info!("Message signed successfully");
-        } else {
-            let err: ErrorResponse = sign_response.json().await?;
-            error!("Signing failed: {}", err.error);
-            anyhow::bail!("Signing failed");
-        }
-    } else if response.status().is_success() {
+    if response.status().is_success() {
         let result: SignResponse = response.json().await?;
         println!("{}", result.signature);
         info!("Message signed successfully");
+    } else if response.status() == 404 {
+        error!("User not found. Please register first using 'sign register'");
+        anyhow::bail!("User not found");
     } else {
         let err: ErrorResponse = response.json().await?;
         error!("Signing failed: {}", err.error);
-        anyhow::bail!("Signing failed");
+        anyhow::bail!("Signing failed: {}", err.error);
     }
 
     Ok(())
