@@ -1,6 +1,9 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use signingcommon::{ErrorResponse, RegisterRequest, RegisterResponse, SignRequest, SignResponse};
+use signingcommon::{
+    ErrorResponse, ForgetRequest, ForgetResponse, RegisterRequest, RegisterResponse, SignRequest,
+    SignResponse,
+};
 use tracing::{error, info};
 
 #[derive(Parser, Debug)]
@@ -34,6 +37,12 @@ enum Commands {
         /// Seed string for key generation
         seed: String,
     },
+    /// Forget a user (delete their signing key)
+    Forget {
+        /// User ID to forget
+        #[arg(short, long)]
+        user_id: String,
+    },
 }
 
 #[tokio::main]
@@ -57,6 +66,9 @@ async fn main() -> Result<()> {
     match args.command {
         Some(Commands::Register { seed }) => {
             register_user(&client, &args.server, &seed).await?;
+        }
+        Some(Commands::Forget { user_id }) => {
+            forget_user(&client, &args.server, &user_id).await?;
         }
         None => {
             // Handle the default sign operation when no subcommand is given
@@ -131,6 +143,30 @@ async fn sign_message(
         let err: ErrorResponse = response.json().await?;
         error!("Signing failed: {}", err.error);
         anyhow::bail!("Signing failed: {}", err.error);
+    }
+
+    Ok(())
+}
+
+async fn forget_user(client: &reqwest::Client, server_url: &str, user_id: &str) -> Result<()> {
+    info!("Forgetting user {}...", user_id);
+
+    let response = client
+        .delete(format!("{}/forget", server_url))
+        .json(&ForgetRequest {
+            user_id: user_id.to_string(),
+        })
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let result: ForgetResponse = response.json().await?;
+        println!("{}", result.message);
+        info!("User {} forgotten successfully", user_id);
+    } else {
+        let err: ErrorResponse = response.json().await?;
+        error!("Forget failed: {}", err.error);
+        anyhow::bail!("Forget failed: {}", err.error);
     }
 
     Ok(())
