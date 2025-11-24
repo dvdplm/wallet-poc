@@ -7,10 +7,6 @@ edition.workspace = true
 name = "sign"
 path = "src/main.rs"
 
-[[bin]]
-name = "demo"
-path = "src/demo.rs"
-
 [dependencies]
 signingcommon = { path = "../signingcommon" }
 clap = { version = "4", features = ["derive"] }
