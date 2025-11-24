@@ -1,9 +1,9 @@
 use reqwest::Client;
-use tracing::{info, trace};
+use tracing::info;
 
 use signingcommon::{RegisterRequest, RegisterResponse, SignRequest, SignResponse};
 
-const SERVER_URL: &str = "http://127.0.0.1:3000";
+const SERVER_URL: &str = "https://127.0.0.1:3443";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -11,9 +11,13 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let client = Client::new();
+    // Build client that accepts self-signed certificates
+    let client = Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()?;
 
     info!("=== Signing Service Demo ===\n");
+    info!("Note: Using HTTPS with self-signed certificate\n");
 
     // Check server
     if client
@@ -71,22 +75,17 @@ async fn sign_message(client: &Client, user_id: &str, message: &str) -> anyhow::
             .send()
             .await?;
         assert!(response.status().is_success(), "registration works");
-        // let r = response.text().await?;
-        // trace!("response: {r:?}");
-        // Ok("".into())
         let user: RegisterResponse = response.json().await?;
+
         // Retry signing
         let response = client
             .post(format!("{}/sign", SERVER_URL))
             .json(&SignRequest {
                 user_id: user.user_id,
-                message: message.to_string(), // FIXME: no need to clone here
+                message: message.to_string(),
             })
             .send()
             .await?;
-        // let r = response.text().await?;
-        // trace!("response: {r:?}");
-        // Ok("".into())
 
         let result: SignResponse = response.json().await?;
         Ok(result.signature)

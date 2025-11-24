@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use reqwest::Client;
 use signingcommon::{ErrorResponse, RegisterRequest, SignRequest, SignResponse};
 use tracing::{error, info};
 
@@ -17,8 +16,12 @@ struct Args {
     user_id: Option<String>,
 
     /// The server URL
-    #[arg(short, long, default_value = "http://127.0.0.1:3000")]
+    #[arg(short, long, default_value = "https://127.0.0.1:3443")]
     server: String,
+
+    /// Accept self-signed certificates (for development)
+    #[arg(long, default_value_t = true)]
+    danger_accept_invalid_certs: bool,
 }
 
 #[tokio::main]
@@ -34,7 +37,15 @@ async fn main() -> Result<()> {
         .or_else(|| std::env::var("WALLET_USER_ID").ok())
         .ok_or_else(|| anyhow::anyhow!("User ID required (-u flag or WALLET_USER_ID env var)"))?;
 
-    let client = Client::new();
+    // Build client with TLS configuration
+    let client = if args.danger_accept_invalid_certs {
+        info!("Warning: Accepting self-signed certificates");
+        reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()?
+    } else {
+        reqwest::Client::new()
+    };
 
     // Try to sign
     let response = client

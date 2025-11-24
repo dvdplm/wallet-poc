@@ -45,7 +45,6 @@ pub async fn sign(
     info!("Sign request for user: {}", req.user_id);
 
     let state = state.read().await;
-
     match state.sign_message(&req.user_id, &req.message) {
         Ok(signature) => {
             info!("Message signed successfully for user: {}", req.user_id);

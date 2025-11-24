@@ -2,6 +2,7 @@ use axum::{
     Router,
     routing::{delete, get, post},
 };
+use axum_server::tls_rustls::RustlsConfig;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -15,6 +16,7 @@ use state::AppState;
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing with colored output
     tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_writer(std::io::stderr)
         .init();
 
@@ -30,12 +32,21 @@ async fn main() -> anyhow::Result<()> {
         .route("/forget", delete(handlers::forget))
         .with_state(app_state);
 
-    let addr = "127.0.0.1:3000";
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Load TLS configuration
+    let config = RustlsConfig::from_pem_file(
+        "signingserver/certs/cert.pem",
+        "signingserver/certs/key.pem",
+    )
+    .await?;
 
-    info!("Server listening on http://{}", addr);
+    let addr = "127.0.0.1:3443";
 
-    axum::serve(listener, app).await?;
+    info!("Server listening on https://{}", addr);
+    info!("Note: Using self-signed certificate.");
+
+    axum_server::bind_rustls(addr.parse()?, config)
+        .serve(app.into_make_service())
+        .await?;
 
     info!("Server shut down gracefully");
     Ok(())
