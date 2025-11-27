@@ -24,7 +24,7 @@ mod tests {
             // Start the server process
             let mut process = Command::new("cargo")
                 .args(&["run", "--bin", "signingserver"])
-                .current_dir("../signingserver")
+                .current_dir("..")
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()?;
@@ -48,7 +48,6 @@ mod tests {
                 }
                 sleep(Duration::from_millis(100)).await;
             }
-
             // If we get here, server didn't start
             process.kill()?;
             anyhow::bail!("Server failed to start within 3 seconds")
