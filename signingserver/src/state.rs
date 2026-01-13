@@ -13,6 +13,9 @@ const MASTER_KEY: &[u8] = b"s!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!ts!kr!t";
 /// Application state managing keys
 #[derive(Debug)]
 pub struct AppState {
+    // TODO: Should probably instantiate this with SIP rather than FNV. `heapless` does not provide
+    // a builtin alias something like this should work:
+    // 	`pub type FnvIndexMap<K, V, const N: usize> = IndexMap<K, V, BuildHasherDefault<SipHasher>, N>;`
     keys: FnvIndexMap<Uuid, SigningKey, MAX_KEYS>,
 }
 
@@ -25,7 +28,7 @@ impl AppState {
 
     /// Register a new user with a deterministically derived signing key
     pub fn register_user(&mut self, seed: &[u8]) -> anyhow::Result<(Uuid, VerifyingKey)> {
-        // Derive a signing key from seed + master key using HKDF
+        // Derive a signing key from seed + master key using HKDF.
         let hkdf = Hkdf::<Sha256>::new(Some(MASTER_KEY), seed);
         let mut signing_key_bytes = [0u8; SECRET_KEY_LENGTH];
         hkdf.expand(b"signing_key", &mut signing_key_bytes)

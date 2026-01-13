@@ -20,7 +20,7 @@ The client, a command line tool called `sign`, works like so:
 $ sign register "my-secret-seed-here"
 ```
 
-The output is a two lines of text with the UUID and the verifying key, to be stored and saved carefully by the user.
+The output is two lines of text with the UUID and the verifying key, to be stored and saved carefully by the user.
 
 2. Sign a message:
 
@@ -44,14 +44,14 @@ The signing server only accepts TLS connections and communicates with outside cl
 
 No data is stored on disk, the server operates entirely in memory and tries to avoid runtime memory allocation. By default the service can hold 1024 users. When the server stops, no trace is left on the host side (no log files, no user database, no signatures). Users can re-register their seeds, which will derive the same signing key (but note that the UUIDs are random and are forgotten each time the service restarts).
 
-Messages are signed using Ed25519. User IDs are UUID v4, providing a standard string representation and an efficient fixed size key type.
+Messages are signed using Ed25519. User IDs are UUID v4, providing a standard string representation and an efficient fixed size ID type.
 
 Users "register" with the service using a "seed", supplied on the command line. The seed is combined with a "master secret" and fed to a KDF (`hkdf` crate, using SHA2) to create the actual signing key. Anyone in possession of the seed can sign messages. Anyone can ask the service to "forget" a user (no auth).
 
 
 ## Discussion
 
-It's important to note that using a signing service like is probably terrible idea from a security point of view. The old degen saying of "not your keys not your crypto" applies. Making something like this secure is quite difficult and constitutes a single point of failure for all users, thus defeating the idea of using decentralized tech like a blockchain. 
+It's important to note that using a signing service like is probably a terrible idea from a security point of view. The old degen saying of "not your keys not your crypto" applies. Making something like this secure is quite difficult and constitutes a single point of failure for all users, thus defeating the idea of using decentralized tech like a blockchain. 
 Signing messages is not a computationally difficult operation and should be implemented locally whenever possible, preferably using hardware wallets.
 
 Short list of deficiencies in my implementation:
@@ -86,4 +86,4 @@ Even if I am of the opinion that digital signatures should really be handled loc
 
 Even with all of the above, I'd be hesitant to actually use a wallet-as-a-service for anything important. It's just not a great fit. 
 
-To *actually* let a remote server sign things on the user's behalf there'd need to be a proper MCP solution, e.g. threshold signatures.
+To *actually* let a remote server sign things on the user's behalf there would need to be a proper MPC solution, e.g. threshold signatures.
